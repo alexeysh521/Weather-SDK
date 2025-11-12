@@ -42,12 +42,18 @@ public class WeatherSDK {
     }
 
     public static synchronized WeatherSDK create(String apiKey, Mode mode){
-        if (INSTANCES.containsKey(apiKey))
-            throw new WeatherSdkException("SDK для этого API-ключа уже создан");
+        synchronized (INSTANCES){
+            if (INSTANCES.containsKey(apiKey))
+                throw new WeatherSdkException("SDK для этого API-ключа уже создан");
 
-        WeatherSDK sdk = new WeatherSDK(apiKey, mode);
-        INSTANCES.put(apiKey, sdk);
-        return sdk;
+            WeatherSDK sdk = new WeatherSDK(apiKey, mode);
+            INSTANCES.put(apiKey, sdk);
+            return sdk;
+        }
+    }
+
+    public static synchronized WeatherSDK get(String apiKey) {
+        return INSTANCES.get(apiKey);
     }
 
     public static synchronized void remove(WeatherSDK sdk) {
