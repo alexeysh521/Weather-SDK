@@ -28,10 +28,18 @@ public class WeatherSDK {
     private final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
 
     private static final Map<String, WeatherSDK> INSTANCES = new HashMap<>();
-    private ScheduledExecutorService executor;
 
+    private final Map<String, CachedWeather> cache = new LinkedHashMap<>(10, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, CachedWeather> eldest) {
+            return size() > 10;
+        }
+    };
+
+    private ScheduledExecutorService executor;
     private final String apiKey;
     private final Mode mode;
+
 
     private WeatherSDK(String apiKey, Mode mode) {
         this.apiKey = apiKey;
@@ -65,13 +73,6 @@ public class WeatherSDK {
 
         INSTANCES.remove(apiKey);
     }
-
-    private final Map<String, CachedWeather> cache = new LinkedHashMap<>(10, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<String, CachedWeather> eldest) {
-            return size() > 10;
-        }
-    };
 
     public WeatherData getCurrentWeatherByCity(String city){
         CachedWeather cachedWeather = cache.get(city.trim().toLowerCase());
