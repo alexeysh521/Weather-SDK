@@ -67,12 +67,6 @@ public class WeatherSDK {
         }
     };
 
-    public static void main(String[] args) {
-        WeatherSDK sdk = WeatherSDK.create("23283c7e4ab31b10e93b49043febe4c5", Mode.POLLING);
-        WeatherData response = sdk.getCurrentWeatherByCity("Samara");
-        System.out.println(response);
-    }
-
     public WeatherData getCurrentWeatherByCity(String city){
         CachedWeather cachedWeather = cache.get(city.trim().toLowerCase());
 
