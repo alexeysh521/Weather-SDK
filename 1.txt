@@ -43,14 +43,25 @@
 * Сейчас SDK возвращает тело ответа OpenWeather, а нужно:
  * Преобразовать его в стандартный JSON, который указан в задании:
  {
-   "weather": {"main": "...", "description": "..."},
-   "temperature": {"temp": ..., "feels_like": ...},
-   "visibility": ...,
-   "wind": {"speed": ...},
-   "datetime": ...,
-   "sys": {"sunrise": ..., "sunset": ...},
-   "timezone": ...,
-   "name": "..."
+  "weather": {
+  "main": "Clouds",
+  "description": "scattered clouds",
+  },
+  "temperature": {
+  "temp": 269.6,
+  "feels_like": 267.57,
+  },
+  "visibility": 10000,
+  "wind": {
+  "speed": 1.38,
+  },
+  "datetime": 1675744800,
+  "sys": {
+  "sunrise": 1675751262,
+  "sunset": 1675787560
+  },
+  "timezone": 3600,
+  "name": "Zocca",
  }
 
 

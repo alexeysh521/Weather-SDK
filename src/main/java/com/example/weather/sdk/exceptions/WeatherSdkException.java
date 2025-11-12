@@ -8,4 +8,8 @@ public class WeatherSdkException extends RuntimeException {
     public WeatherSdkException(Throwable cause) {
         super(cause);
     }
+
+    public WeatherSdkException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
