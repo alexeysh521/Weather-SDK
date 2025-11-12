@@ -3,6 +3,9 @@ package com.example.weather.sdk.logic;
 import com.example.weather.sdk.enums.Mode;
 import com.example.weather.sdk.exceptions.WeatherSdkException;
 import com.example.weather.sdk.logic.model.CachedWeather;
+import com.example.weather.sdk.logic.model.WeatherData;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,6 +16,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -23,15 +27,37 @@ public class WeatherSDK {
 
     private final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
 
+    private static final Map<String, WeatherSDK> INSTANCES = new HashMap<>();
+    private ScheduledExecutorService executor;
+
     private final String apiKey;
     private final Mode mode;
 
-    public WeatherSDK(String apiKey, Mode mode) {
+    private WeatherSDK(String apiKey, Mode mode) {
         this.apiKey = apiKey;
         this.mode = mode;
 
         if(this.mode == Mode.POLLING)
             startPolling();
+    }
+
+    public static synchronized WeatherSDK create(String apiKey, Mode mode){
+        if (INSTANCES.containsKey(apiKey))
+            throw new WeatherSdkException("SDK для этого API-ключа уже создан");
+
+        WeatherSDK sdk = new WeatherSDK(apiKey, mode);
+        INSTANCES.put(apiKey, sdk);
+        return sdk;
+    }
+
+    public static synchronized void remove(WeatherSDK sdk) {
+        String apiKey = sdk.apiKey;
+
+        if (sdk.executor != null) {
+            sdk.executor.shutdownNow();
+        }
+
+        INSTANCES.remove(apiKey);
     }
 
     private final Map<String, CachedWeather> cache = new LinkedHashMap<>(10, 0.75f, true) {
@@ -42,17 +68,21 @@ public class WeatherSDK {
     };
 
     public static void main(String[] args) {
-        WeatherSDK sdk = new WeatherSDK("23283c7e4ab31b10e93b49043febe4c5", Mode.POLLING);
-        String response = sdk.getCurrentWeatherByCity("Samara");
+        WeatherSDK sdk = WeatherSDK.create("23283c7e4ab31b10e93b49043febe4c5", Mode.POLLING);
+        WeatherData response = sdk.getCurrentWeatherByCity("Samara");
         System.out.println(response);
     }
 
-    public String getCurrentWeatherByCity(String city){
+    public WeatherData getCurrentWeatherByCity(String city){
         CachedWeather cachedWeather = cache.get(city.trim().toLowerCase());
 
         if(cachedWeather != null && cachedWeather.isFresh()){
             LOGGER.info("Возврат данных из хеша: {}", cachedWeather.getJsonData());
-            return cachedWeather.getJsonData();
+            try {
+                return new ObjectMapper().readValue(cachedWeather.getJsonData(), WeatherData.class);
+            } catch (JsonProcessingException e) {
+                throw new WeatherSdkException("Ошибка парсинга JSON из кэша", e);
+            }
         }
 
         String json = getJsonRequest(city);
@@ -61,7 +91,11 @@ public class WeatherSDK {
             cache.put(city, new CachedWeather(json));
         }
 
-        return json;
+        try {
+            return new ObjectMapper().readValue(json, WeatherData.class);
+        } catch (JsonProcessingException e) {
+            throw new WeatherSdkException("Ошибка парсинга JSON от API", e);
+        }
     }
 
     public String getJsonRequest(String city){
@@ -97,7 +131,7 @@ public class WeatherSDK {
     }
 
     private void startPolling() {
-        ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+        executor = Executors.newSingleThreadScheduledExecutor();
         executor.scheduleAtFixedRate(() -> {
             synchronized (cache) {
                 cache.forEach((city, cached) -> {
@@ -133,9 +167,3 @@ public class WeatherSDK {
     }
 
 }
-/// -------------------------- исключения --------------------------
-/// throw new WeatherSdkException("неверный API ключ");
-/// throw new WeatherSdkException("ошибки сети / тайм-ауты");
-/// throw new WeatherSdkException("ошибки парсинга ответа");
-
-/// https://api.openweathermap.org/data/2.5/weather?q=Moscow&appid=23283c7e4ab31b10e93b49043febe4c5
