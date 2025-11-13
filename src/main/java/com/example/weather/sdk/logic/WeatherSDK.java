@@ -139,7 +139,7 @@ public class WeatherSDK {
         LOGGER.info("Экземпляр SDK с API: {} успешно удален", this.apiKey);
     }
 
-    private String getJsonRequest(String city){
+    public String getJsonRequest(String city){
         String normalizedCity = city.trim().toLowerCase();
         String url = String.format(
                 "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s",

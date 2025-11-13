@@ -53,7 +53,7 @@ public class WeatherSDKTests {
     }
 
     @Test
-    void getCurrentWeatherByCity_fromApi_returnWeatherData(){
+    void getCurrentWeatherByCity_fromApi_returnWeatherData() throws Exception {
         WeatherSDK spySdk = Mockito.spy(WeatherSDK.create("test-api", Mode.POLLING));
 
         String json = """
@@ -65,6 +65,7 @@ public class WeatherSDKTests {
                   "sys": { "sunrise": 1690000000, "sunset": 1690040000 },
                   "timezone": 14400
                 }""";
+
 
         doReturn(json).when(spySdk).getJsonRequest("Samara");
 
