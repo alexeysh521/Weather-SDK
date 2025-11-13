@@ -131,10 +131,6 @@ public class WeatherSDK {
         return sdk;
     }
 
-    public synchronized WeatherSDK get(String apiKey) {
-        return INSTANCES.get(apiKey);
-    }
-
     public synchronized void remove() {
         if (this.executor != null)
             this.executor.shutdownNow();
@@ -143,7 +139,7 @@ public class WeatherSDK {
         LOGGER.info("Экземпляр SDK с API: {} успешно удален", this.apiKey);
     }
 
-    public String getJsonRequest(String city){
+    private String getJsonRequest(String city){
         String normalizedCity = city.trim().toLowerCase();
         String url = String.format(
                 "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s",
