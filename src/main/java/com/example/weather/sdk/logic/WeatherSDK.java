@@ -1,5 +1,6 @@
 package com.example.weather.sdk.logic;
 
+
 import com.example.weather.sdk.enums.Mode;
 import com.example.weather.sdk.exceptions.WeatherSdkException;
 import com.example.weather.sdk.logic.model.CachedWeather;
@@ -50,14 +51,12 @@ public class WeatherSDK {
     }
 
     public static synchronized WeatherSDK create(String apiKey, Mode mode){
-        synchronized (INSTANCES){
-            if (INSTANCES.containsKey(apiKey))
-                throw new WeatherSdkException("SDK для этого API-ключа уже создан");
+        if (INSTANCES.containsKey(apiKey))
+            throw new WeatherSdkException("SDK для этого API-ключа уже создан");
 
-            WeatherSDK sdk = new WeatherSDK(apiKey, mode);
-            INSTANCES.put(apiKey, sdk);
-            return sdk;
-        }
+        WeatherSDK sdk = new WeatherSDK(apiKey, mode);
+        INSTANCES.put(apiKey, sdk);
+        return sdk;
     }
 
     public static synchronized WeatherSDK get(String apiKey) {
@@ -78,8 +77,8 @@ public class WeatherSDK {
         CachedWeather cachedWeather = cache.get(city.trim().toLowerCase());
 
         if(cachedWeather != null && cachedWeather.isFresh()){
-            LOGGER.info("Возврат данных из хеша: {}", cachedWeather.getJsonData());
             try {
+                LOGGER.info("Возврат данных из хеша: {}", cachedWeather.getJsonData());
                 return new ObjectMapper().readValue(cachedWeather.getJsonData(), WeatherData.class);
             } catch (JsonProcessingException e) {
                 throw new WeatherSdkException("Ошибка парсинга JSON из кэша", e);
