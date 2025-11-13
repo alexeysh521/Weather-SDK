@@ -8,7 +8,7 @@ public class CachedWeather {
     private final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
 
     private final String jsonData;
-    private final long lastUpdated;
+    private long lastUpdated;
 
     public CachedWeather(String jsonData) {
         this.jsonData = jsonData;
@@ -23,11 +23,18 @@ public class CachedWeather {
         return lastUpdated;
     }
 
+    public void setLastUpdated(long lastUpdated) {
+        this.lastUpdated = lastUpdated;
+    }
+
     public boolean isFresh() {
         long now = System.currentTimeMillis();
         long diff = now - lastUpdated;
-        LOGGER.info("Данные о погоде устарели: {}", jsonData);
+        boolean isFresh = diff < 600_000;
+        if (!isFresh) {
+            LOGGER.info("Данные о погоде устарели");
+        }
 
-        return diff < 600_000;
+        return isFresh;
     }
 }

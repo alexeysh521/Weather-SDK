@@ -17,6 +17,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -27,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 public class WeatherSDK {
 
     private final Logger LOGGER = LoggerFactory.getLogger(this.getClass());
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final Map<String, WeatherSDK> INSTANCES = new HashMap<>();
 
@@ -41,13 +43,83 @@ public class WeatherSDK {
     private final String apiKey;
     private final Mode mode;
 
-
     private WeatherSDK(String apiKey, Mode mode) {
         this.apiKey = apiKey;
         this.mode = mode;
 
         if(this.mode == Mode.POLLING)
             startPolling();
+    }
+
+    private void startPolling() {
+        executor = Executors.newSingleThreadScheduledExecutor();
+        executor.scheduleAtFixedRate(() -> {
+            synchronized (cache) {
+                new ArrayList<>(cache.keySet()).forEach(city -> {
+                    try{
+                        CachedWeather cached = cache.get(city);
+                        long ageMinutes = Duration.between(
+                                Instant.ofEpochMilli(cached.getLastUpdated()),
+                                Instant.now()
+                        ).toMinutes();
+
+                        if (ageMinutes >= 10) {
+                            String json = getJsonRequest(city);
+                            if (json != null) {
+                                cache.put(city, new CachedWeather(json));
+                            }
+                        }
+                    }catch (Exception e){
+                        LOGGER.error("Ошибка обновления данных для города: {}", city);
+                    }
+                });
+            }
+        }, 10, 1, TimeUnit.MINUTES);
+    }
+
+    public WeatherData getCurrentWeatherByCity(String city){
+        if (city == null || city.trim().isEmpty())
+            throw new WeatherSdkException("Название города не может быть пустым");
+
+        String normalizedCity = city.trim().toLowerCase();
+
+        synchronized (cache) {
+            CachedWeather cachedWeather = cache.get(normalizedCity);
+            if(cachedWeather != null && cachedWeather.isFresh()){
+                try {
+                    LOGGER.info("Возврат данных из кэша для города: {}", normalizedCity);
+                    return objectMapper.readValue(cachedWeather.getJsonData(), WeatherData.class);
+                } catch (JsonProcessingException e) {
+                    throw new WeatherSdkException("Ошибка парсинга JSON из кэша", e);
+                }
+            }
+        }
+
+        String json = getJsonRequest(city);
+
+        if(json == null) {
+            throw new WeatherSdkException("Не удалось получить данные от API");
+        }
+
+        synchronized (cache) {
+            CachedWeather cachedWeather = cache.get(normalizedCity);
+            if(cachedWeather != null && cachedWeather.isFresh()){
+                try {
+                    LOGGER.info("Возврат данных из кэша (после повторной проверки): {}", normalizedCity);
+                    return objectMapper.readValue(cachedWeather.getJsonData(), WeatherData.class);
+                } catch (JsonProcessingException e) {
+                    throw new WeatherSdkException("Ошибка парсинга JSON из кэша", e);
+                }
+            }
+
+            cache.put(normalizedCity, new CachedWeather(json));
+        }
+
+        try {
+            return objectMapper.readValue(json, WeatherData.class);
+        } catch (JsonProcessingException e) {
+            throw new WeatherSdkException("Ошибка парсинга JSON от API", e);
+        }
     }
 
     public static synchronized WeatherSDK create(String apiKey, Mode mode){
@@ -59,49 +131,23 @@ public class WeatherSDK {
         return sdk;
     }
 
-    public static synchronized WeatherSDK get(String apiKey) {
+    public synchronized WeatherSDK get(String apiKey) {
         return INSTANCES.get(apiKey);
     }
 
-    public static synchronized void remove(WeatherSDK sdk) {
-        String apiKey = sdk.apiKey;
+    public synchronized void remove() {
+        if (this.executor != null)
+            this.executor.shutdownNow();
 
-        if (sdk.executor != null) {
-            sdk.executor.shutdownNow();
-        }
-
-        INSTANCES.remove(apiKey);
-    }
-
-    public WeatherData getCurrentWeatherByCity(String city){
-        CachedWeather cachedWeather = cache.get(city.trim().toLowerCase());
-
-        if(cachedWeather != null && cachedWeather.isFresh()){
-            try {
-                LOGGER.info("Возврат данных из хеша: {}", cachedWeather.getJsonData());
-                return new ObjectMapper().readValue(cachedWeather.getJsonData(), WeatherData.class);
-            } catch (JsonProcessingException e) {
-                throw new WeatherSdkException("Ошибка парсинга JSON из кэша", e);
-            }
-        }
-
-        String json = getJsonRequest(city);
-
-        if(json != null){
-            cache.put(city, new CachedWeather(json));
-        }
-
-        try {
-            return new ObjectMapper().readValue(json, WeatherData.class);
-        } catch (JsonProcessingException e) {
-            throw new WeatherSdkException("Ошибка парсинга JSON от API", e);
-        }
+        INSTANCES.remove(this.apiKey);
+        LOGGER.info("Экземпляр SDK с API: {} успешно удален", this.apiKey);
     }
 
     public String getJsonRequest(String city){
+        String normalizedCity = city.trim().toLowerCase();
         String url = String.format(
                 "https://api.openweathermap.org/data/2.5/weather?q=%s&appid=%s",
-                city, apiKey
+                normalizedCity, apiKey
         );
 
         HttpClient client = getHttpClient();
@@ -124,32 +170,14 @@ public class WeatherSDK {
                 throw new WeatherSdkException("Ошибка API: " + response.statusCode());
             }
 
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             LOGGER.error("Ошибка при выполнении запроса к API", e);
             throw new WeatherSdkException("Ошибка сети / таймаута при обращении к OpenWeather API", e);
+        } catch (InterruptedException e) {
+            LOGGER.error("Запрос к API для города {} был прерван", city, e);
+            Thread.currentThread().interrupt();
+            throw new WeatherSdkException("Запрос к API был прерван", e);
         }
-    }
-
-    private void startPolling() {
-        executor = Executors.newSingleThreadScheduledExecutor();
-        executor.scheduleAtFixedRate(() -> {
-            synchronized (cache) {
-                cache.forEach((city, cached) -> {
-                    long ageMinutes = Duration.between(
-                            Instant.ofEpochMilli(cached.getLastUpdated()),
-                            Instant.now()
-                    ).toMinutes();
-
-                    if (ageMinutes >= 10) {
-                        LOGGER.info("Обновление данных по городу: {}", city);
-                        String json = getJsonRequest(city);
-                        if (json != null) {
-                            cache.put(city, new CachedWeather(json));
-                        }
-                    }
-                });
-            }
-        }, 0, 1, TimeUnit.MINUTES);
     }
 
     private HttpRequest getHttpRequest(String url) {
