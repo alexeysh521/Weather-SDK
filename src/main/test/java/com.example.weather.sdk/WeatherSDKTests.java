@@ -78,7 +78,7 @@ public class WeatherSDKTests {
     }
 
     @Test
-    void getCurrentWeatherByCity_fromCache_ReturnsWeatherData() throws Exception {
+    void getCurrentWeatherByCity_fromCache_returnWeatherData() throws Exception {
         WeatherSDK spySdk = Mockito.spy(WeatherSDK.create("test-api", Mode.POLLING));
 
         Field cacheField  = WeatherSDK.class.getDeclaredField("cache");
