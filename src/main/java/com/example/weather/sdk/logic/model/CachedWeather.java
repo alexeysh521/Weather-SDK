@@ -32,7 +32,7 @@ public class CachedWeather {
         long diff = now - lastUpdated;
         boolean isFresh = diff < 600_000;
         if (!isFresh) {
-            LOGGER.info("Данные о погоде устарели");
+            LOGGER.info("Weather data is obsolete");
         }
 
         return isFresh;
