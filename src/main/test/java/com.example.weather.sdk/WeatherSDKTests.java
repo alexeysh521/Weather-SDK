@@ -36,7 +36,7 @@ public class WeatherSDKTests {
                 () -> WeatherSDK.create(apiKey, Mode.POLLING)
         );
 
-        assertEquals("SDK для этого API-ключа уже создан", exception.getMessage());
+        assertEquals("An SDK instance for this API-key has already been created", exception.getMessage());
     }
 
     @Test
@@ -48,8 +48,8 @@ public class WeatherSDKTests {
         executorField.setAccessible(true);
         ScheduledExecutorService executor = (ScheduledExecutorService) executorField.get(weatherSDK);
 
-        assertNotNull(executor, "Executor должен быть создан");
-        assertFalse(executor.isShutdown(), "Executor не должен быть завершён");
+        assertNotNull(executor, "The executor must be created");
+        assertFalse(executor.isShutdown(), "The executor must not be terminated");
     }
 
     @Test
@@ -71,9 +71,9 @@ public class WeatherSDKTests {
 
         WeatherData result = spySdk.getCurrentWeatherByCity("Samara");
 
-        assertNotNull(result, "Метод должен вернуть объект WeatherData");
-        assertEquals(25, result.getTemperature().temp, "Температура должна соответствовать JSON");
-        assertEquals("Samara", result.name, "Город должен соответствовать JSON");
+        assertNotNull(result, "The method must return a WeatherData object");
+        assertEquals(25, result.getTemperature().temp, "The temperature must match the JSON");
+        assertEquals("Samara", result.name, "The city must match the JSON");
 
         verify(spySdk, times(1)).getJsonRequest("Samara");
     }
@@ -99,13 +99,13 @@ public class WeatherSDKTests {
 
         CachedWeather cachedWeather = new CachedWeather(json);
 
-        cache.put("samara", cachedWeather);
+        cache.put("Samara", cachedWeather);
 
         WeatherData result = spySdk.getCurrentWeatherByCity("Samara");
 
-        assertNotNull(result, "Метод должен вернуть объект WeatherData");
-        assertEquals(25, result.getTemperature().temp, "Температура должна соответствовать кэшу");
-        assertEquals("Samara", result.name, "Город должен соответсвовать кешу");
+        assertNotNull(result, "The method must return a WeatherData object");
+        assertEquals(25, result.getTemperature().temp, "The temperature must match the cache");
+        assertEquals("Samara", result.name, "The city must match the cache");
 
         verify(spySdk, never()).getJsonRequest(anyString());
     }
