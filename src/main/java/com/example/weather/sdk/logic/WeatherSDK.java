@@ -81,25 +81,10 @@ public class WeatherSDK {
         if (city == null)
             throw new WeatherSdkException("The city name cannot be empty");
 
-
-
-        synchronized (cache) {
-            CachedWeather cachedWeather = cache.get(city);
-            if(cachedWeather != null && cachedWeather.isFresh()){
-                try {
-                    LOGGER.info("Returning data from the cache for a city: {}", city);
-                    return objectMapper.readValue(cachedWeather.getJsonData(), WeatherData.class);
-                } catch (JsonProcessingException e) {
-                    throw new WeatherSdkException("JSON parsing errors from the cache", e);
-                }
-            }
-        }
-
         String json = getJsonRequest(city);
 
-        if(json == null) {
+        if(json == null)
             throw new WeatherSdkException("Failed to retrieve data from the API");
-        }
 
         synchronized (cache) {
             CachedWeather cachedWeather = cache.get(city);
